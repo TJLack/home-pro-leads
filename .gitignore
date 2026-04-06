@@ -1,0 +1,16 @@
+node_modules
+.next
+out
+dist
+.env*
+!.env.example
+coverage
+.DS_Store
+npm-debug.log*
+pnpm-lock.yaml
+yarn.lock
+
+data/app.db
+data/app.db-shm
+data/app.db-wal
+public/screenshots/*.png
