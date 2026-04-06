@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     const scorecard = calculateScore(result);
 
-    saveReport({
+    await saveReport({
       id: result.id,
       websiteUrl: result.requestedUrl,
       normalizedStartUrl: result.normalizedStartUrl,

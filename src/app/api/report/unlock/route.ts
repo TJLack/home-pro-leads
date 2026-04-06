@@ -21,13 +21,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid form input." }, { status: 400 });
   }
 
-  const report = getReportById(parsed.data.reportReference);
+  const report = await getReportById(parsed.data.reportReference);
 
   if (!report) {
     return NextResponse.json({ error: "Report not found. Please run a new scan." }, { status: 404 });
   }
 
-  const lead = createLead({
+  const lead = await createLead({
     reportReference: parsed.data.reportReference,
     name: parsed.data.name,
     email: parsed.data.email,

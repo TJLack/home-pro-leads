@@ -1,12 +1,15 @@
 # Website Revenue Leak Detector
 
-Production-focused local app for Key City Digital's lead magnet flow:
+Vercel-compatible deployment path for Key City Digital's lead magnet flow:
 scan -> locked preview -> lead capture -> full report unlock.
 
-## Local Requirements
+## Runtime Notes
 
-- Node.js 20+
-- npm
+- No external APIs are required.
+- Storage uses local JSON files.
+  - Local development: `./data/reports.json`, `./data/leads.json`
+  - Vercel: `/tmp/home-pro-leads/*.json` (ephemeral between cold starts/deploys)
+- Screenshot capture is disabled automatically on Vercel runtime.
 
 ## Setup
 
@@ -14,7 +17,7 @@ scan -> locked preview -> lead capture -> full report unlock.
    ```bash
    npm install
    ```
-2. Install Playwright Chromium
+2. (Optional local screenshots) install Playwright Chromium
    ```bash
    npx playwright install chromium
    ```
@@ -29,44 +32,19 @@ scan -> locked preview -> lead capture -> full report unlock.
 5. Open app
    - `http://localhost:3000`
 
-## End-to-End Local Test Process
+## End-to-End Test Process
 
 1. Enter a website URL and click **Scan My Website Free**.
-2. Confirm progress message appears.
-3. Confirm locked report preview appears with score snapshot.
-4. Fill unlock form and submit.
-5. Confirm full report appears without re-running scan.
-6. Confirm persistence in SQLite:
-   - database file: `data/app.db`
-   - report stored in `reports`
-   - lead stored in `leads`
+2. Confirm locked preview appears.
+3. Submit unlock form.
+4. Confirm full report appears without re-running scan.
+5. Verify local persistence files:
+   - `data/reports.json`
+   - `data/leads.json`
 
-Example SQLite check:
+## Deploying to Vercel
 
-```bash
-sqlite3 data/app.db "SELECT COUNT(*) FROM reports;"
-sqlite3 data/app.db "SELECT COUNT(*) FROM leads;"
-```
-
-## Persistence Schema
-
-### reports
-- id (TEXT primary key)
-- website_url (TEXT)
-- normalized_start_url (TEXT)
-- requested_at (TEXT)
-- created_at (TEXT)
-- result_json (TEXT)
-- scorecard_json (TEXT)
-
-### leads
-- id (TEXT primary key)
-- report_reference (TEXT, FK reports.id)
-- name (TEXT)
-- email (TEXT)
-- phone (TEXT)
-- business_name (TEXT)
-- city (TEXT)
-- monthly_marketing_budget (INTEGER nullable)
-- submitted_url (TEXT)
-- created_at (TEXT)
+- Preset: **Next.js**
+- Keep default build/output settings
+- Expect screenshot capture to be disabled in cloud runtime
+- Persistence in `/tmp` is temporary (not permanent long-term storage)

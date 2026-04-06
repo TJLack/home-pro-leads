@@ -1,4 +1,7 @@
-import { db } from "@/lib/storage/db";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+import { getStorageDir } from "@/lib/storage/storage-paths";
 import type { ScoreCard, ScanResult } from "@/lib/types/domain";
 
 export type StoredReport = {
@@ -11,7 +14,31 @@ export type StoredReport = {
   scorecard: ScoreCard;
 };
 
-export function saveReport(params: {
+const reportsById = new Map<string, StoredReport>();
+
+function getReportsFilePath() {
+  return path.join(getStorageDir(), "reports.json");
+}
+
+async function readAllReportsFromDisk(): Promise<StoredReport[]> {
+  const filePath = getReportsFilePath();
+  await mkdir(path.dirname(filePath), { recursive: true });
+
+  try {
+    const raw = await readFile(filePath, "utf8");
+    return JSON.parse(raw) as StoredReport[];
+  } catch {
+    return [];
+  }
+}
+
+async function writeAllReportsToDisk(records: StoredReport[]) {
+  const filePath = getReportsFilePath();
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, JSON.stringify(records, null, 2), "utf8");
+}
+
+export async function saveReport(params: {
   id: string;
   websiteUrl: string;
   normalizedStartUrl: string;
@@ -19,57 +46,35 @@ export function saveReport(params: {
   result: ScanResult;
   scorecard: ScoreCard;
 }) {
-  const now = new Date().toISOString();
+  const report: StoredReport = {
+    id: params.id,
+    websiteUrl: params.websiteUrl,
+    normalizedStartUrl: params.normalizedStartUrl,
+    requestedAt: params.requestedAt,
+    createdAt: new Date().toISOString(),
+    result: params.result,
+    scorecard: params.scorecard,
+  };
 
-  db.prepare(
-    `
-    INSERT OR REPLACE INTO reports (
-      id, website_url, normalized_start_url, requested_at, created_at, result_json, scorecard_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-  `,
-  ).run(
-    params.id,
-    params.websiteUrl,
-    params.normalizedStartUrl,
-    params.requestedAt,
-    now,
-    JSON.stringify(params.result),
-    JSON.stringify(params.scorecard),
-  );
+  reportsById.set(report.id, report);
+
+  const all = await readAllReportsFromDisk();
+  const next = [...all.filter((record) => record.id !== report.id), report];
+  await writeAllReportsToDisk(next);
 }
 
-export function getReportById(reportId: string): StoredReport | null {
-  const row = db
-    .prepare(
-      `
-    SELECT id, website_url, normalized_start_url, requested_at, created_at, result_json, scorecard_json
-    FROM reports
-    WHERE id = ?
-  `,
-    )
-    .get(reportId) as
-    | {
-        id: string;
-        website_url: string;
-        normalized_start_url: string;
-        requested_at: string;
-        created_at: string;
-        result_json: string;
-        scorecard_json: string;
-      }
-    | undefined;
-
-  if (!row) {
-    return null;
+export async function getReportById(reportId: string): Promise<StoredReport | null> {
+  const cached = reportsById.get(reportId);
+  if (cached) {
+    return cached;
   }
 
-  return {
-    id: row.id,
-    websiteUrl: row.website_url,
-    normalizedStartUrl: row.normalized_start_url,
-    requestedAt: row.requested_at,
-    createdAt: row.created_at,
-    result: JSON.parse(row.result_json) as ScanResult,
-    scorecard: JSON.parse(row.scorecard_json) as ScoreCard,
-  };
+  const all = await readAllReportsFromDisk();
+  const found = all.find((item) => item.id === reportId) ?? null;
+
+  if (found) {
+    reportsById.set(found.id, found);
+  }
+
+  return found;
 }

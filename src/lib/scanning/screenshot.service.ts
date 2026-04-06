@@ -1,8 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
-import { chromium } from "playwright";
-
 import type { ScreenshotAsset } from "@/lib/types/domain";
 
 const SCREENSHOT_TIMEOUT_MS = 15_000;
@@ -11,6 +9,18 @@ export async function captureHomepageScreenshot(params: {
   url: string;
   scanId: string;
 }): Promise<ScreenshotAsset> {
+  const screenshotEnabled = !process.env.VERCEL && process.env.ENABLE_SCREENSHOT_CAPTURE !== "false";
+
+  if (!screenshotEnabled) {
+    return {
+      status: "failed",
+      error: "Screenshot capture disabled for this runtime.",
+      capturedAt: new Date().toISOString(),
+    };
+  }
+
+  const { chromium } = await import("playwright");
+
   const outputDir = path.join(process.cwd(), "public", "screenshots");
   await mkdir(outputDir, { recursive: true });
 

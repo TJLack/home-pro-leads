@@ -54,6 +54,15 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
+
+function parseApiResponse<T>(raw: string): T & { error?: string } {
+  try {
+    return JSON.parse(raw) as T & { error?: string };
+  } catch {
+    return { error: raw.slice(0, 240) || "Unexpected non-JSON response from server." } as T & { error?: string };
+  }
+}
+
 export default function Home() {
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [preview, setPreview] = useState<LockedPreview | null>(null);
@@ -108,7 +117,8 @@ export default function Home() {
         body: JSON.stringify({ websiteUrl: websiteUrl.trim() }),
       });
 
-      const data = (await response.json()) as { preview?: LockedPreview; error?: string };
+      const raw = await response.text();
+      const data = parseApiResponse<{ preview?: LockedPreview }>(raw);
 
       if (!response.ok || !data.preview) {
         throw new Error(data.error ?? "Scan failed.");
@@ -143,7 +153,8 @@ export default function Home() {
         body: JSON.stringify(form),
       });
 
-      const data = (await response.json()) as UnlockedReport & { error?: string };
+      const raw = await response.text();
+      const data = parseApiResponse<UnlockedReport>(raw);
 
       if (!response.ok) {
         throw new Error(data.error ?? "Unable to unlock report.");

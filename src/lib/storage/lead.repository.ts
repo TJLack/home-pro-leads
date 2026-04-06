@@ -1,4 +1,7 @@
-import { db } from "@/lib/storage/db";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+
+import { getStorageDir } from "@/lib/storage/storage-paths";
 import type { LeadRecord } from "@/lib/types/domain";
 
 export type CreateLeadInput = {
@@ -12,31 +15,31 @@ export type CreateLeadInput = {
   submittedUrl: string;
 };
 
-export function createLead(input: CreateLeadInput): LeadRecord {
-  const id = crypto.randomUUID();
-  const createdAt = new Date().toISOString();
+function getLeadsFilePath() {
+  return path.join(getStorageDir(), "leads.json");
+}
 
-  db.prepare(
-    `
-      INSERT INTO leads (
-        id, report_reference, name, email, phone, business_name, city, monthly_marketing_budget, submitted_url, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-  ).run(
-    id,
-    input.reportReference,
-    input.name,
-    input.email,
-    input.phone,
-    input.businessName,
-    input.city,
-    input.monthlyMarketingBudget ?? null,
-    input.submittedUrl,
-    createdAt,
-  );
+async function readAllLeads(): Promise<LeadRecord[]> {
+  const filePath = getLeadsFilePath();
+  await mkdir(path.dirname(filePath), { recursive: true });
 
-  return {
-    id,
+  try {
+    const raw = await readFile(filePath, "utf8");
+    return JSON.parse(raw) as LeadRecord[];
+  } catch {
+    return [];
+  }
+}
+
+async function writeAllLeads(records: LeadRecord[]) {
+  const filePath = getLeadsFilePath();
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, JSON.stringify(records, null, 2), "utf8");
+}
+
+export async function createLead(input: CreateLeadInput): Promise<LeadRecord> {
+  const lead: LeadRecord = {
+    id: crypto.randomUUID(),
     reportReference: input.reportReference,
     name: input.name,
     email: input.email,
@@ -45,6 +48,12 @@ export function createLead(input: CreateLeadInput): LeadRecord {
     city: input.city,
     monthlyMarketingBudget: input.monthlyMarketingBudget ?? null,
     submittedUrl: input.submittedUrl,
-    createdAt,
+    createdAt: new Date().toISOString(),
   };
+
+  const all = await readAllLeads();
+  all.push(lead);
+  await writeAllLeads(all);
+
+  return lead;
 }
